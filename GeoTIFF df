@@ -1,0 +1,56 @@
+import rasterio
+import pandas as pd
+import numpy as np
+
+# Initialize an empty list to store data rows
+data = []
+
+# List of paths to the GeoTIFF files based on theme (variables)
+geotiff_files = {
+    'temperature': 'temperature.tif',
+    'humidity': 'humidity.tif',
+    'land_cover': 'land_cover.tif',
+    'elevation': 'elevation.tif',
+    'aspect': 'aspect.tif',
+    'burnt_label': 'burnt_label.tif'
+}
+
+# Read each GeoTIFF file into a dictionary
+rasters = {}
+for theme, filename in geotiff_files.items():
+    with rasterio.open(filename) as src:
+        rasters[theme] = src.read(1)  # Read the first band (assumes single-band GeoTIFFs)
+
+# Get the pixel grid dimensions (assuming all rasters have the same shape)
+rows, cols = rasters['temperature'].shape
+
+# Iterate over each pixel to collect data
+for row in range(rows):
+    for col in range(cols):
+        # Extract pixel values for each theme
+        temperature = rasters['temperature'][row, col]
+        humidity = rasters['humidity'][row, col]
+        land_cover = rasters['land_cover'][row, col]
+        elevation = rasters['elevation'][row, col]
+        aspect = rasters['aspect'][row, col]
+        is_burnt = rasters['burnt_label'][row, col]  # 0 = not burnt, 1 = burnt
+        
+        # Create a dictionary for the row of the dataframe
+        data_row = {
+            'pixel_id': row * cols + col,  # Unique pixel identifier
+            'temperature': temperature,
+            'humidity': humidity,
+            'land_cover': land_cover,
+            'elevation': elevation,
+            'aspect': aspect,
+            'is_burnt_label': is_burnt
+        }
+        
+        # Append the row to the data list
+        data.append(data_row)
+
+# Convert the list of data rows into a DataFrame
+df = pd.DataFrame(data)
+
+# Output the dataframe for further use or processing
+print(df)
