@@ -1,45 +1,27 @@
-# Machine Learning Methodology Project
+# CIS5560: Machine Learning Methodology Project
 
-This repository contains the project for a graduate course on Machine Learning Methodology. The goal of this project is to utilize machine learning models to make predictions based on GeoTIFF file formats.
+This repository contains the project for the graduate course **CIS5560** on Machine Learning Methodology. The goal of this project is to utilize machine learning models to make predictions based on GeoTIFF files.
 
 ## Project Workflow
 
-1. **Raw Datasets**:  
-    The raw datasets are located in the `dataset` folder.
+1. **Data Collection**:
+    - The raw data is stored in the `dataset` folder and is obtained from Google Earth Engine.
+    - The dataset includes:
+      - California Shapefile.
+      - Multi-band GeoTIFF file.
 
-2. **GeoTIFF Processing**:  
-    - The GeoTIFF data file is processed to generate a `reprojected_resampled_raster.tif` file.
-    - The `reprojected_resampled_raster.tif` file is resampled and converted into a CSV format for further analysis.
+2. **Data Preprocessing**:
+    - Use the script `main.py` to resample the raster file in the `dataset` folder.
+    - The output is a CSV file named `reprojected_resampled_raster_with_indices.csv`, where the pixel resolution is adjusted to 200x200.
 
-3. **Model Training and Testing**:  
-    - Python scripts in the `ML_py` folder are used to train and test machine learning models on the processed data.
-
-## Learning Objectives
-
-Through this project, we aim to:
-- Understand how to process GeoTIFF file formats.
-- Apply machine learning models to geospatial data.
-- Predict outcomes based on geospatial features.
+3. **Model Training**:
+    - Python scripts in the `ML_py` folder are used to build and train four machine learning models based on the processed CSV file.
+    - The goal is to identify the best model for predicting wildfires in California.
 
 ## Folder Structure
+- `dataset/`: Contains raw data files (California Shapefile and GeoTIFF files).
+- `ML_py/`: Contains Python scripts for machine learning model development and training.
+- `main.py`: Script for data preprocessing and raster resampling.
 
-```
-/dataset       - Contains raw GeoTIFF datasets
-/ML_py         - Python scripts for training and testing ML models
-raster.tif     - Processed GeoTIFF file
-output.csv     - Resampled data in CSV format
-```
-
-## Requirements
-
-- Python 3.x
-- Required Python libraries (install via `requirements.txt` if provided)
-
-## Usage
-
-1. Process the GeoTIFF file to generate `raster.tif` and convert it to CSV format.
-2. Run the Python scripts in the `ML_py` folder to train and test the machine learning models.
-
-## Acknowledgments
-
-This project is part of the graduate course on Machine Learning Methodology.
+## Objective
+To leverage machine learning techniques for wildfire prediction in California using geospatial data.
