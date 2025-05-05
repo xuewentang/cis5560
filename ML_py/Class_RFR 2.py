@@ -17,6 +17,7 @@ from pyspark.sql.functions import col
 from functools import reduce
 import pandas as pd
 import builtins
+from time import time 
 
 from pyspark.context import SparkContext
 from pyspark.sql.session import SparkSession
@@ -29,7 +30,7 @@ if PYSPARK_CLI:
     spark = SparkSession(sc)
 
 # File location and type
-file_location = "/user/ssen5/reprojected_resampled_raster_with_indices.csv"
+file_location = "/user/xtang13/project/reprojected_resampled_raster_with_indices.csv"
 file_type = "csv"
 
 # CSV options
@@ -142,7 +143,8 @@ weighted_data = clean_data.withColumn(
 
 #if results show change line 146 to splits = weighted_data.randomSplit([0.7, 0.3])
 # Split the data
-splits = weighted_data.randomSplit([0.7, 0.3])
+start = time()
+splits = weighted_data.randomSplit([0.7, 0.3]) 
 train = splits[0]
 test = splits[1]
 train_rows = train.count()
@@ -160,15 +162,21 @@ pipeline = []
 
 #lr = RandomForestRegressor(labelCol="label", featuresCol="normFeatures")
 rf = RandomForestClassifier(labelCol="label", featuresCol="features", weightCol="classWeightCol")
+
+
 # Parameter Grid for TrainValidationSplit/ Define the parameter grid for hyperparameter tuning
-paramGrid = ParamGridBuilder() \
+paramGridTV = ParamGridBuilder() \
   .addGrid(rf.maxDepth, [5, 10]) \
   .addGrid(rf.numTrees, [20, 50])\
   .build()
+
+
 pipeline.insert(0, Pipeline(stages=[assembler, rf]))
-tv = TrainValidationSplit(estimator=pipeline[0], evaluator=BinaryClassificationEvaluator(labelCol="label", rawPredictionCol="rawPrediction", metricName="areaUnderROC"), estimatorParamMaps=paramGrid, trainRatio=0.8)
+tv = TrainValidationSplit(estimator=pipeline[0], evaluator=BinaryClassificationEvaluator(labelCol="label", rawPredictionCol="rawPrediction", metricName="areaUnderROC"), estimatorParamMaps=paramGridTV, trainRatio=0.8)
+
 model.insert(0, tv.fit(train)) 
 print("Train Validation Split model trained!")
+
 
 # TVS Feature Importance
 best_model_trainVal = model[0].bestModel.stages[-1]
@@ -178,10 +186,10 @@ feature_importance_trainVal = best_model_trainVal.featureImportances.toArray()
 feature_imp_trainVal = pd.DataFrame(
     list(zip(assembler.getInputCols(), feature_importance_trainVal)),
     columns=["feature", "importance"]
-)
+).sort_values(by="importance", ascending=False)
 
 # Sort it
-feature_imp_trainVal = feature_imp_trainVal.sort_values(by="importance", ascending=False)
+#feature_imp_trainVal = feature_imp_trainVal.sort_values(by="importance", ascending=False)
 
 #Print it
 print("Feature Importance (TrainValidationSplit):")
@@ -216,6 +224,10 @@ feature_imp_crossVal = pd.DataFrame(
 print("Feature Importance (CrossValidator):")
 print(feature_imp_crossVal)
 
+
+
+
+
 # 2. Predict and store results
 prediction = []
 predicted = []
@@ -245,46 +257,49 @@ for i in range(len(model)):
     print(f"   AUC: {auc:.2%}")
 
 
+end = time()
+print(f"Elapsed time: {end - start:.2f} seconds")
+
 '''
 
 Train Validation Split model trained!
 Feature Importance (TrainValidationSplit):
        feature  importance
-3    landcover    0.302987
-2       precip    0.227423
-4    elevation    0.212575
-1     humidity    0.155191
-5        slope    0.044641
-0          lst    0.029808
-7  pop_density    0.023677
-6       aspect    0.003698
+3    landcover    0.245198
+2       precip    0.209374
+4    elevation    0.181650
+1     humidity    0.132434
+7  pop_density    0.068255
+0          lst    0.068223
+5        slope    0.050204
+6       aspect    0.044663
 
-scala:44, took 0.037942 s
 Model 0:
-   F1 Score: 93.02%
-   Precision: 99.78%
-   Recall: 91.22%
-   AUC: 98.30%
+   F1 Score: 93.18%
+   Precision: 99.85%
+   Recall: 91.39%
+   AUC: 98.36%
 
 
 
 CrossValidator model trained!
 Feature Importance (CrossValidator):
        feature  importance
-3    landcover    0.195154
-2       precip    0.188120
-4    elevation    0.176380
-1     humidity    0.139719
-7  pop_density    0.087623
-0          lst    0.084224
-6       aspect    0.070638
-5        slope    0.058143
+2       precip    0.197090
+3    landcover    0.196882
+4    elevation    0.172029
+1     humidity    0.135854
+7  pop_density    0.086731
+0          lst    0.084351
+6       aspect    0.069892
+5        slope    0.057171
 
 Model 1:
-   F1 Score: 97.36%
+   F1 Score: 97.72%
    Precision: 100.00%
-   Recall: 96.93%
-   AUC: 99.95%
+   Recall: 97.37%
+   AUC: 99.94%
+Elapsed time: 1158.04 seconds
 
 '''
 

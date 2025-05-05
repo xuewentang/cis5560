@@ -1,7 +1,6 @@
 #scp /Users/sophathriya/Desktop/Class_LR.py ssen5@144.24.13.0:~
 
-#this one took more than 3 hours to run
-#******LogisticRegression
+#******LogisticRegression (classification)
 # Import Spark SQL and Spark ML libraries
 from pyspark.sql.types import *
 from pyspark.ml import Pipeline
@@ -14,6 +13,8 @@ from pyspark.sql.functions import col
 from functools import reduce
 import pandas as pd
 import builtins
+from time import time 
+
 from pyspark.context import SparkContext
 from pyspark.sql.session import SparkSession
 
@@ -45,16 +46,16 @@ df.show(5)
 
 #rename multiple coulmns 
 df = df.withColumnRenamed("Band_1","burned") \
-		.withColumnRenamed("Band_2","lst") \
-		.withColumnRenamed("Band_3","humidity") \
-		.withColumnRenamed("Band_4","precip") \
-		.withColumnRenamed("Band_5","landcover") \
-		.withColumnRenamed("Band_6","elevation") \
-		.withColumnRenamed("Band_7","slope") \
-		.withColumnRenamed("Band_8","aspect") \
-		.withColumnRenamed("Band_9","pop_density") \
-		.withColumnRenamed("row","longtitude") \
-		.withColumnRenamed("col","latitude") 
+        .withColumnRenamed("Band_2","lst") \
+        .withColumnRenamed("Band_3","humidity") \
+        .withColumnRenamed("Band_4","precip") \
+        .withColumnRenamed("Band_5","landcover") \
+        .withColumnRenamed("Band_6","elevation") \
+        .withColumnRenamed("Band_7","slope") \
+        .withColumnRenamed("Band_8","aspect") \
+        .withColumnRenamed("Band_9","pop_density") \
+        .withColumnRenamed("row","longtitude") \
+        .withColumnRenamed("col","latitude") 
 
 df.show(5)
 
@@ -126,8 +127,8 @@ weighted_data = clean_data.withColumn(
 )
 #===============weighted column==========================
 
-#this split is important 2 filtering session; due to encountered error of null values 
 #split data 
+start = time()
 splits = weighted_data.randomSplit([0.7, 0.3])
 train = splits[0]
 test = splits[1]
@@ -140,10 +141,10 @@ assembler = VectorAssembler(inputCols = ["lst", "humidity", "precip", "landcover
 # minMax Scale; number vector is normalized: 04/20/2021
 minMax = MinMaxScaler(inputCol = assembler.getOutputCol(), outputCol="normFeatures")
 
-#col "label" = "burned"
-training = assembler.transform(train).select("features", "label", "classWeightCol").withColumnRenamed("label", "trueLabel")
+training = assembler.transform(train)
+training = minMax.fit(training).transform(training)
+training = training.select("normFeatures", "label", "classWeightCol") #no rename
 
-training.show(10)
 
 #train Linear Regression model 
 lr = LogisticRegression(
@@ -153,7 +154,6 @@ lr = LogisticRegression(
     maxIter=10,
     regParam=0.3
 )
-
 
 # define list of models made from Train Validation Split and Cross Validation
 model = []
@@ -330,6 +330,12 @@ for idx, m in enumerate(model):
     tn = float(prediction.filter("prediction == 0.0 AND trueLabel == 0.0").count())
     fn = float(prediction.filter("prediction == 0.0 AND trueLabel == 1.0").count())
 
+    print(f"\nConfusion Matrix for {model_names[idx]} Model:")
+    print(f"True Positives (TP): {tp}")
+    print(f"False Positives (FP): {fp}")
+    print(f"True Negatives (TN): {tn}")
+    print(f"False Negatives (FN): {fn}")
+
     precision_manual = tp / (tp + fp) if (tp + fp) > 0 else 0.0
     recall_manual = tp / (tp + fn) if (tp + fn) > 0 else 0.0
     f1_manual = 2 * (precision_manual * recall_manual) / (precision_manual + recall_manual) if (precision_manual + recall_manual) > 0 else 0.0
@@ -361,34 +367,49 @@ print("\n=== Model Performance Summary ===")
 print(summary_df)
 
 
+
+
+
 '''
 
 === Feature Importances (TrainValidationSplit Model) ===
        feature  coefficient  abs_importance
-7  pop_density      -4.6024          4.6024
-3    landcover       3.9540          3.9540
-2       precip       2.8692          2.8692
-5        slope       1.9155          1.9155
-4    elevation       1.5008          1.5008
-1     humidity       1.0668          1.0668
-0          lst      -0.5265          0.5265
-6       aspect      -0.0785          0.0785
+7  pop_density      -4.5496          4.5496
+3    landcover       3.9629          3.9629
+2       precip       2.8658          2.8658
+5        slope       1.9170          1.9170
+4    elevation       1.5061          1.5061
+1     humidity       1.0628          1.0628
+0          lst      -0.5277          0.5277
+6       aspect      -0.0797          0.0797
+
+Confusion Matrix for TrainValidationSplit Model:
+True Positives (TP): 77105.0
+False Positives (FP): 397826.0
+True Negatives (TN): 1095210.0
+False Negatives (FN): 26842.0
 
 === Feature Importances (CrossValidator Model) ===
        feature  coefficient  abs_importance
-7  pop_density     -12.9363         12.9363
-3    landcover       5.4919          5.4919
-2       precip       5.1582          5.1582
-4    elevation       3.4048          3.4048
-1     humidity       3.3566          3.3566
-5        slope       2.9322          2.9322
-0          lst       1.6546          1.6546
-6       aspect      -0.1545          0.1545
+7  pop_density     -12.7606         12.7606
+3    landcover       5.5140          5.5140
+2       precip       5.1568          5.1568
+4    elevation       3.4171          3.4171
+1     humidity       3.3550          3.3550
+5        slope       2.9371          2.9371
+0          lst       1.6506          1.6506
+6       aspect      -0.1566          0.1566
+
+Confusion Matrix for CrossValidator Model:
+True Positives (TP): 77837.0
+False Positives (FP): 367393.0
+True Negatives (TN): 1125643.0
+False Negatives (FN): 26110.0
 
 === Model Performance Summary ===
                   Model  Precision  Recall  F1 Score  Accuracy     AUC
-0  TrainValidationSplit     0.1620  0.7413    0.2659    0.7338  0.8154
-1        CrossValidator     0.1743  0.7487    0.2828    0.7529  0.8226
+0  TrainValidationSplit     0.1623  0.7418    0.2664    0.7341  0.8149
+1        CrossValidator     0.1748  0.7488    0.2835    0.7536  0.822125
 
 '''
 
